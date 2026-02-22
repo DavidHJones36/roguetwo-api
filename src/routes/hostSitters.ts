@@ -79,6 +79,25 @@ export async function hostSittersRoutes(app: FastifyInstance) {
         .send({ error: 'Can only create relationships for yourself' });
     }
 
+    // A host cannot add themselves as a sitter
+    if (host === sitter) {
+      return reply
+        .status(403)
+        .send({ error: 'A host cannot join their own sitter network' });
+    }
+
+    const { data: profile } = await db
+      .from('profiles_private')
+      .select('isHost')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (profile?.isHost) {
+      return reply
+        .status(403)
+        .send({ error: 'Hosts cannot join a sitter network' });
+    }
+
     const { error } = await db.from('host_sitters').insert({
       host,
       sitter,

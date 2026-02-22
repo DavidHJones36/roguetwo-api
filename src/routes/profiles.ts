@@ -94,6 +94,62 @@ export async function profilesRoutes(app: FastifyInstance) {
     return data;
   });
 
+  // GET /profiles/my-sitters - Get profiles + status of all sitters for the current host,
+  // grouped into { sitters: (active/pending), deniedSitters }
+  app.get('/my-sitters', async (request) => {
+    const { data: mappings, error: mappingsError } = await db
+      .from('host_sitters')
+      .select('sitter, sitter_status')
+      .eq('host', request.userId);
+
+    if (mappingsError) throw mappingsError;
+    if (!mappings?.length) return { sitters: [], deniedSitters: [] };
+
+    const sitterIds = mappings
+      .map((r) => r.sitter)
+      .filter((id): id is string => id !== null);
+
+    const { data, error } = await db
+      .from('profiles')
+      .select('id, first_name, last_name, avatar_url, created_at')
+      .in('id', sitterIds);
+
+    if (error) throw error;
+
+    const all = (data || []).map((p) => ({
+      ...p,
+      sitter_status:
+        mappings.find((m) => m.sitter === p.id)?.sitter_status ?? null,
+    }));
+
+    return {
+      sitters: all.filter((s) => s.sitter_status !== 'denied'),
+      deniedSitters: all.filter((s) => s.sitter_status === 'denied'),
+    };
+  });
+
+  // GET /profiles/my-hosts - Get profiles of all approved hosts for the current sitter
+  app.get('/my-hosts', async (request) => {
+    const { data: mappings, error: mappingsError } = await db
+      .from('host_sitters')
+      .select('host')
+      .eq('sitter', request.userId)
+      .eq('sitter_status', 'approved');
+
+    if (mappingsError) throw mappingsError;
+    if (!mappings?.length) return [];
+
+    const hostIds = mappings.map((r) => r.host);
+
+    const { data, error } = await db
+      .from('profiles')
+      .select('id, first_name, last_name, avatar_url, created_at')
+      .in('id', hostIds);
+
+    if (error) throw error;
+    return data || [];
+  });
+
   // GET /profiles/batch?ids=id1,id2,... - Batch lookup profiles
   app.get<{ Querystring: { ids: string } }>(
     '/batch',

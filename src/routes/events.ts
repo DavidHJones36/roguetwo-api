@@ -4,9 +4,39 @@ import { db } from '../supabase.js';
 export async function eventsRoutes(app: FastifyInstance) {
   // GET /events - List all events
   app.get('/', async (request) => {
+    const userId = request.userId;
+
+    // Check if the user is a sitter
+    const { data: profile } = await db
+      .from('profiles_private')
+      .select('isSitter')
+      .eq('id', userId)
+      .maybeSingle();
+
+    let approvedHostIds: string[] = [];
+    if (profile?.isSitter) {
+      const { data: hostSitters } = await db
+        .from('host_sitters')
+        .select('host')
+        .eq('sitter', userId)
+        .eq('sitter_status', 'approved');
+      approvedHostIds = (hostSitters ?? []).map((hs) => hs.host);
+    }
+
+    // Build OR filter: user's own events + unclaimed events from approved hosts
+    const orParts = [`host.eq.${userId}`, `sitter.eq.${userId}`];
+    if (approvedHostIds.length > 0) {
+      orParts.push(
+        `and(host.in.(${approvedHostIds.join(',')}),sitter.is.null)`,
+      );
+    }
+
     const { data, error } = await db
       .from('events')
       .select('*')
+      .or(orParts.join(','))
+      .eq('is_deleted', false)
+      .gte('event_timestamp', new Date().toISOString())
       .order('event_timestamp', { ascending: true });
 
     if (error) throw error;
@@ -72,6 +102,7 @@ export async function eventsRoutes(app: FastifyInstance) {
       .from('events')
       .select('*')
       .eq('id', eventId)
+      .eq('is_deleted', false)
       .single();
 
     if (error) {
@@ -106,11 +137,11 @@ export async function eventsRoutes(app: FastifyInstance) {
     // Verify the user is the host or is claiming/unclaiming as a sitter
     const { data: existingEvent } = await db
       .from('events')
-      .select('host, sitter')
+      .select('host, sitter, is_deleted')
       .eq('id', eventId)
       .single();
 
-    if (!existingEvent) {
+    if (!existingEvent || existingEvent.is_deleted) {
       return reply.status(404).send({ error: 'Event not found' });
     }
 
@@ -148,11 +179,11 @@ export async function eventsRoutes(app: FastifyInstance) {
     // Verify ownership
     const { data: existing } = await db
       .from('events')
-      .select('host')
+      .select('host, is_deleted')
       .eq('id', eventId)
       .single();
 
-    if (!existing) {
+    if (!existing || existing.is_deleted) {
       return reply.status(404).send({ error: 'Event not found' });
     }
     if (existing.host !== request.userId) {
@@ -161,7 +192,10 @@ export async function eventsRoutes(app: FastifyInstance) {
         .send({ error: 'Not authorized to delete this event' });
     }
 
-    const { error } = await db.from('events').delete().eq('id', eventId);
+    const { error } = await db
+      .from('events')
+      .update({ is_deleted: true })
+      .eq('id', eventId);
     if (error) throw error;
 
     return { success: true };

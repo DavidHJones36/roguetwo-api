@@ -45,7 +45,7 @@ export async function profilesRoutes(app: FastifyInstance) {
   app.get('/me/private', async (request, reply) => {
     const { data, error } = await db
       .from('profiles_private')
-      .select('isHost, isSitter')
+      .select('isHost, isSitter, approved')
       .eq('id', request.userId)
       .single();
 

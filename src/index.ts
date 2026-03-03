@@ -6,6 +6,7 @@ import { eventsRoutes } from './routes/events.js';
 import { profilesRoutes } from './routes/profiles.js';
 import { hostSittersRoutes } from './routes/hostSitters.js';
 import { inviteLinksRoutes } from './routes/inviteLinks.js';
+import { feedbackRoutes } from './routes/feedback.js';
 
 const app = Fastify({ logger: true });
 
@@ -26,6 +27,7 @@ await app.register(eventsRoutes, { prefix: '/events' });
 await app.register(profilesRoutes, { prefix: '/profiles' });
 await app.register(hostSittersRoutes, { prefix: '/host-sitters' });
 await app.register(inviteLinksRoutes, { prefix: '/invite-links' });
+await app.register(feedbackRoutes, { prefix: '/feedback' });
 
 // Health check
 app.get('/health', async () => ({ status: 'ok' }));

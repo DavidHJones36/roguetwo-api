@@ -78,6 +78,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      feedback: {
+        Row: {
+          category: string;
+          created_at: string | null;
+          email: string | null;
+          id: string;
+          message: string;
+          user_id: string | null;
+        };
+        Insert: {
+          category: string;
+          created_at?: string | null;
+          email?: string | null;
+          id?: string;
+          message: string;
+          user_id?: string | null;
+        };
+        Update: {
+          category?: string;
+          created_at?: string | null;
+          email?: string | null;
+          id?: string;
+          message?: string;
+          user_id?: string | null;
+        };
+        Relationships: [];
+      };
       host_sitters: {
         Row: {
           created_at: string;

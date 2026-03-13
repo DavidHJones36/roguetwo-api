@@ -61,70 +61,22 @@ export async function hostSittersRoutes(app: FastifyInstance) {
     return data;
   });
 
-  // POST /host-sitters - Create a new host-sitter relationship
-  app.post<{
-    Body: {
-      host: string;
-      sitter: string;
-      sitter_status: 'pending' | 'approved' | 'invited';
-    };
-  }>('/', async (request, reply) => {
-    const { host, sitter, sitter_status } = request.body;
-    const userId = request.userId;
-
-    // Only the sitter themselves can request to join
-    if (sitter !== userId) {
-      return reply
-        .status(403)
-        .send({ error: 'Can only create relationships for yourself' });
-    }
-
-    // A host cannot add themselves as a sitter
-    if (host === sitter) {
-      return reply
-        .status(403)
-        .send({ error: 'A host cannot join their own sitter network' });
-    }
-
-    const { data: profile } = await db
-      .from('profiles_private')
-      .select('isHost')
-      .eq('id', userId)
-      .maybeSingle();
-
-    if (profile?.isHost) {
-      return reply
-        .status(403)
-        .send({ error: 'Hosts cannot join a sitter network' });
-    }
-
-    const { error } = await db.from('host_sitters').insert({
-      host,
-      sitter,
-      sitter_status,
-    });
-
-    if (error) throw error;
-    reply.status(201);
-    return { success: true };
-  });
-
-  // PATCH /host-sitters - Update sitter status (approve/deny)
+  // PATCH /host-sitters - Update sitter status (deny)
   app.patch<{
     Body: {
       host: string;
       sitter: string;
-      sitter_status: 'approved' | 'denied';
+      sitter_status: 'denied';
     };
   }>('/', async (request, reply) => {
     const { host, sitter, sitter_status } = request.body;
     const userId = request.userId;
 
-    // Only the host can approve/deny
+    // Only the host can deny
     if (host !== userId) {
       return reply
         .status(403)
-        .send({ error: 'Only the host can approve or deny sitters' });
+        .send({ error: 'Only the host can deny sitters' });
     }
 
     const { error } = await db

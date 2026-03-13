@@ -115,7 +115,7 @@ export async function eventsRoutes(app: FastifyInstance) {
     return data;
   });
 
-  // PATCH /events/:id - Update event fields
+  // PATCH /events/:id - Update event fields (host only; claiming is handled by Azure Function)
   app.patch<{
     Params: { id: string };
     Body: {
@@ -134,10 +134,9 @@ export async function eventsRoutes(app: FastifyInstance) {
     const userId = request.userId;
     const updates = request.body;
 
-    // Verify the user is the host or is claiming/unclaiming as a sitter
     const { data: existingEvent } = await db
       .from('events')
-      .select('host, sitter, is_deleted')
+      .select('host, is_deleted')
       .eq('id', eventId)
       .single();
 
@@ -145,28 +144,7 @@ export async function eventsRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: 'Event not found' });
     }
 
-    // Hosts can update anything, sitters can only claim (set sitter to themselves)
-    const isHostOfEvent = existingEvent.host === userId;
-    const isClaimingEvent =
-      Object.keys(updates).length === 1 &&
-      'sitter' in updates &&
-      updates.sitter === userId;
-
-    if (isClaimingEvent) {
-      const { data: profile } = await db
-        .from('profiles_private')
-        .select('isHost')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (profile?.isHost) {
-        return reply
-          .status(403)
-          .send({ error: 'Hosts cannot claim events' });
-      }
-    }
-
-    if (!isHostOfEvent && !isClaimingEvent) {
+    if (existingEvent.host !== userId) {
       return reply
         .status(403)
         .send({ error: 'Not authorized to update this event' });

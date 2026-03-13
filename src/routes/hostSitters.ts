@@ -8,21 +8,29 @@ export async function hostSittersRoutes(app: FastifyInstance) {
     Querystring: { host?: string; sitter?: string; status?: string };
   }>('/', async (request, reply) => {
     const { host, sitter, status } = request.query;
+    const userId = request.userId;
 
     if (host) {
-      // Host listing their sitters
-      let query = db
+      if (host !== userId) {
+        return reply
+          .status(403)
+          .send({ error: "Not authorized to view this host's sitters" });
+      }
+      const { data, error } = await db
         .from('host_sitters')
         .select('sitter, sitter_status')
         .eq('host', host);
 
-      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     }
 
     if (sitter) {
-      // Sitter listing their hosts
+      if (sitter !== userId) {
+        return reply
+          .status(403)
+          .send({ error: "Not authorized to view this sitter's hosts" });
+      }
       let query = db.from('host_sitters').select('host').eq('sitter', sitter);
 
       if (status) {
